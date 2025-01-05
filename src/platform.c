@@ -43,10 +43,6 @@ void free_platform_list(RomMPlatform* platforms, int count) {
     free(platforms);
 }
 
-// Return the console path based on platform slug
-const char* get_console_path(const char* platform_slug) {
-    return "miyoo-mini";
-}
 
 // Function to generate the Basic Authorization header from username and password
 char* generate_authorization_header(const char* username, const char* password) {
@@ -127,8 +123,6 @@ int fetch_platform_list(const char* server_host, const char* username, const cha
     struct json_object *parsed_json;
     parsed_json = json_tokener_parse(response_get_memory(resp));
 
-    fprintf(stderr, "Parsed JSON: %s\n", json_object_to_json_string(parsed_json));
-
     if (parsed_json == NULL) {
         fprintf(stderr, "Failed to parse JSON response\n");
         response_free(resp);
@@ -167,10 +161,5 @@ int fetch_platform_list(const char* server_host, const char* username, const cha
     response_free(resp);
     json_object_put(parsed_json);
 
-    return 0;
-}
-
-// Function to fetch the ROM list from the server
-int fetch_rom_list(const char* server_host, const char* platform_slug, RomMRom** rom_list, int* rom_count) {
     return 0;
 }

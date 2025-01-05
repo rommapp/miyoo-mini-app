@@ -1,5 +1,6 @@
-# template-repo
-A template repository for basing all new projects
+# miyoo-mini-app
+
+Onion OS app to connect to a RomM server and fetch games
 
 ```sh
 sudo apt-get install libjson-c-dev libsdl2-dev libsdl2-ttf-dev

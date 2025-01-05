@@ -2,15 +2,15 @@
 #define ROMM_CLIENT_H
 
 #include "rom.h"
-#include "platform.h"
+#include "menu_state.h"
 
-// Structure for memory buffer
-struct MemoryStruct {
-    char* memory;
-    size_t size;
-};
+#include "SDL/SDL.h"
+#include "SDL/SDL_ttf.h"
 
-// Memory handling callback
-static size_t WriteMemoryCallback(void* contents, size_t size, size_t nmemb, void* userp);
+int init_menu(MenuState* state);
+void cleanup_menu(MenuState* state);
+void render_platform_list(MenuState* state);
+void handle_input(MenuState* state, SDL_Event* event, bool* quit, bool* selected);
+int read_config(MenuState* state, const char* config_file);
 
 #endif /* ROMM_CLIENT_H */

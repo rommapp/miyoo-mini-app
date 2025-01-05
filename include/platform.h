@@ -43,11 +43,10 @@ typedef struct RomMPlatform {
 // Function declarations for memory management
 void free_platform(RomMPlatform* platform);
 void free_firmware(RomMPlatformFirmware* firmware);
+void free_platform_list(RomMPlatform* platforms, int count);
 
 // Function declarations for operations
-const char* get_console_path(const char* platform_slug);
+char* generate_authorization_header(const char* username, const char* password);
 int fetch_platform_list(const char* server_url, const char* username, const char* password, RomMPlatform** platform_list, int* platform_count);
-int fetch_rom_list(const char* server_url, const char* platform_slug, RomMRom** rom_list, int* rom_count);
-void free_platform_list(RomMPlatform* platforms, int count);
 
 #endif // ROMM_PLATFORM_H
