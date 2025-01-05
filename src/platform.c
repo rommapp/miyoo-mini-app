@@ -103,9 +103,12 @@ int fetch_rom_list(const char* server_url, const char* platform_slug, RomMRom** 
 
     for (int i = 0; i < *rom_count; i++) {
         (*rom_list)[i].id = i + 1;
-        (*rom_list)[i].igdb_id = i + 10;
-        (*rom_list)[i].sgdb_id = i + 20;
-        (*rom_list)[i].moby_id = i + 30;
+        (*rom_list)[i].igdb_id = malloc(sizeof(int));
+        *(*rom_list)[i].igdb_id = i + 10;
+        (*rom_list)[i].sgdb_id = malloc(sizeof(int));
+        *(*rom_list)[i].sgdb_id = i + 20;
+        (*rom_list)[i].moby_id = malloc(sizeof(int));
+        *(*rom_list)[i].moby_id = i + 30;
         (*rom_list)[i].platform_id = 1;
         (*rom_list)[i].platform_slug = strdup(platform_slug);
         (*rom_list)[i].platform_name = strdup("Example Platform");

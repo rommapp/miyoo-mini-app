@@ -1,12 +1,14 @@
 #ifndef ROMM_ROM_H
 #define ROMM_ROM_H
 
+#include <stdbool.h>
+
 // Structure to hold ROM information
 typedef struct RomMRom {
     int id;
     int* igdb_id;              // Nullable
-    void* sgdb_id;             // object type
-    void* moby_id;             // object type
+    int* sgdb_id;             // object type
+    int* moby_id;             // object type
     int platform_id;
     char* platform_slug;
     char* platform_name;
