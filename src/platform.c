@@ -1,7 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include "include/platform.h"
+#include "platform.h"
 
 // Free memory for a single firmware
 void free_firmware(RomMPlatformFirmware* firmware) {

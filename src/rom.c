@@ -1,4 +1,4 @@
-#include "include/rom.h"
+#include "rom.h"
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
