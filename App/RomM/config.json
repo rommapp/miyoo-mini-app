@@ -1,0 +1,7 @@
+{
+    "label": "RomM",
+    "icon": "romm.png",
+    "iconsel": "",
+    "launch": "launch.sh",
+    "description": "Browse games, download titles, and sync saves"
+}
