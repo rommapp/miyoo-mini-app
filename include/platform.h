@@ -1,7 +1,6 @@
 #ifndef ROMM_PLATFORM_H
 #define ROMM_PLATFORM_H
 
-#include <curl/curl.h>
 #include <json-c/json.h>
 #include <stdbool.h>
 #include "rom.h"

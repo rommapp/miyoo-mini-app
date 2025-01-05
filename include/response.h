@@ -10,6 +10,7 @@ typedef struct Response Response;
 Response* response_init(void);
 void response_free(Response* resp);
 size_t response_write_callback(void* contents, size_t size, size_t nmemb, void* userp);
+void response_append(Response* resp, const char* data);
 
 // Getters since the structure is opaque
 const char* response_get_memory(const Response* resp);

@@ -1,6 +1,8 @@
 # Define the compiler and the flags
-CC = gcc
-CFLAGS = -Wall -Wextra -O2 -I./include  # Include all headers in ./include
+CC=$(CROSS_COMPILE)gcc
+CFLAGS=-Wall -Wextra -O2 -DSDL=1 -I./include -I$(PREFIX)/include
+LDFLAGS=-L./lib -L$(PREFIX)/lib -ljson-c -lSDL -lSDL_ttf
+LDLIBS=-DSDL=1 -lSDL -lpthread -lSDL_ttf
 
 # Define the target executable
 TARGET = romm
@@ -16,7 +18,7 @@ all: $(TARGET)
 
 # Link the object files to create the executable
 $(TARGET): $(OBJS)
-	$(CC) $(CFLAGS) -o $@ $^ -L./lib -ljson-c -lcurl
+	$(CC) $(CFLAGS) $(LDLIBS) -o $@ $^ $(LDFLAGS)
 
 # Compile the source files into object files
 %.o: %.c

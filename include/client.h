@@ -10,9 +10,6 @@ struct MemoryStruct {
     size_t size;
 };
 
-// Function declarations for memory management
-void free_string_array(StringArray* arr);
-
 // Memory handling callback
 static size_t WriteMemoryCallback(void* contents, size_t size, size_t nmemb, void* userp);
 

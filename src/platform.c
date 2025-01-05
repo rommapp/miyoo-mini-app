@@ -1,7 +1,6 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
-#include <curl/curl.h>
 #include <json-c/json.h>
 #include "platform.h"
 #include "base64.h"
@@ -83,10 +82,14 @@ char* generate_authorization_header(const char* username, const char* password) 
 
 // Function to fetch the platform list from the server
 int fetch_platform_list(const char* server_host, const char* username, const char* password, RomMPlatform** platform_list, int* platform_count) {
-    CURL *curl;
-    CURLcode res;
     Response* resp = response_init();
     char url[1024];
+    char auth_header[1024];
+    char command[2100];
+    FILE *fp;
+    char *line = NULL;
+    size_t len = 0;
+    ssize_t read;
 
     if (!resp) {
         fprintf(stderr, "Failed to initialize response\n");
@@ -96,52 +99,39 @@ int fetch_platform_list(const char* server_host, const char* username, const cha
     // Build the URL for the request
     snprintf(url, sizeof(url), "%s/api/platforms", server_host);
 
-    // Initialize libcurl
-    curl_global_init(CURL_GLOBAL_DEFAULT);
-    curl = curl_easy_init();
+    // Create the Authorization header
+    snprintf(auth_header, sizeof(auth_header), "%s", generate_authorization_header(username, password));
 
-    if (!curl) {
-        fprintf(stderr, "Failed to initialize curl\n");
+    // Build the curl command
+    snprintf(command, sizeof(command), "/mnt/SDCARD/.tmp_update/bin/curl -s -H \"%s\" %s", auth_header, url);
+
+    // Execute curl and capture the response
+    fp = popen(command, "r");
+    if (fp == NULL) {
+        fprintf(stderr, "Failed to run curl command\n");
         response_free(resp);
-        curl_global_cleanup();
         return -1;
     }
 
-    // Set the URL and the callback function
-    curl_easy_setopt(curl, CURLOPT_URL, url);
-    curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, response_write_callback);
-    curl_easy_setopt(curl, CURLOPT_WRITEDATA, (void *)resp);
+    // Read the output of the curl command into a string buffer
+    while ((read = getline(&line, &len, fp)) != -1) {
+        response_append(resp, line);
+    }
 
-    // Set the Authorization header
-    char* auth_header = generate_authorization_header(username, password);
-    struct curl_slist *headers = NULL;
-    headers = curl_slist_append(headers, auth_header);
-    curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);
-
-    // Perform the request
-    res = curl_easy_perform(curl);
-
-    if (res != CURLE_OK) {
-        fprintf(stderr, "curl_easy_perform() failed: %s\n", curl_easy_strerror(res));
-        response_free(resp);
-        free(auth_header);
-        curl_slist_free_all(headers);
-        curl_easy_cleanup(curl);
-        curl_global_cleanup();
-        return -1;
+    fclose(fp);
+    if (line) {
+        free(line);
     }
 
     // Parse the JSON response
     struct json_object *parsed_json;
     parsed_json = json_tokener_parse(response_get_memory(resp));
 
+    fprintf(stderr, "Parsed JSON: %s\n", json_object_to_json_string(parsed_json));
+
     if (parsed_json == NULL) {
         fprintf(stderr, "Failed to parse JSON response\n");
         response_free(resp);
-        free(auth_header);
-        curl_slist_free_all(headers);
-        curl_easy_cleanup(curl);
-        curl_global_cleanup();
         return -1;
     }
 
@@ -174,12 +164,8 @@ int fetch_platform_list(const char* server_host, const char* username, const cha
     }
 
     // Clean up
-    free(auth_header);
     response_free(resp);
-    curl_slist_free_all(headers);
     json_object_put(parsed_json);
-    curl_easy_cleanup(curl);
-    curl_global_cleanup();
 
     return 0;
 }

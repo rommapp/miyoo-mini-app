@@ -4,7 +4,8 @@
             "name": "Mac",
             "includePath": [
                 "${workspaceFolder}/**",
-                "/opt/homebrew/Cellar/json-c/0.18/include"
+                "/opt/homebrew/Cellar/json-c/0.18/include",
+                "/opt/homebrew/Cellar/sdl2/2.30.11/include"
             ],
             "defines": [],
             "compilerPath": "/usr/bin/gcc",

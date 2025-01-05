@@ -52,6 +52,15 @@ static int ensure_capacity(Response* resp, size_t additional_size) {
     return 0;
 }
 
+void response_append(Response* resp, const char* data) {
+    size_t data_len = strlen(data);
+    if (ensure_capacity(resp, data_len) == 0) {
+        memcpy(resp->memory + resp->size, data, data_len);
+        resp->size += data_len;
+        resp->memory[resp->size] = '\0';
+    }
+}
+
 size_t response_write_callback(void* contents, size_t size, size_t nmemb, void* userp) {
     size_t realsize = size * nmemb;
     Response* resp = (Response*)userp;
