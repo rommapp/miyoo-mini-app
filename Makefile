@@ -16,7 +16,7 @@ all: $(TARGET)
 
 # Link the object files to create the executable
 $(TARGET): $(OBJS)
-	$(CC) $(CFLAGS) -o $@ $^ -L./lib -ljson-c
+	$(CC) $(CFLAGS) -o $@ $^ -L./lib -ljson-c -lcurl
 
 # Compile the source files into object files
 %.o: %.c
@@ -25,3 +25,9 @@ $(TARGET): $(OBJS)
 # Clean up the build files
 clean:
 	rm -f $(OBJS) $(TARGET)
+
+INSTALL_DIR = /usr/local/bin
+
+# Add an 'install' rule
+install: $(TARGET)
+	install -m 755 $(TARGET) $(INSTALL_DIR)/$(TARGET)

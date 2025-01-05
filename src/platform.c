@@ -169,11 +169,11 @@ int fetch_platform_list(const char* server_host, const char* username, const cha
 
         // Handle nullable fields with NULL checks
         struct json_object *igdb_id_obj = json_object_object_get(platform_obj, "igdb_id");
-        (*platform_list)[i].igdb_id = igdb_id_obj == NULL ? NULL : strdup(json_object_get_int(igdb_id_obj));
+        (*platform_list)[i].igdb_id = igdb_id_obj == NULL ? -1 : json_object_get_int(igdb_id_obj);
         struct json_object *sgdb_id_obj = json_object_object_get(platform_obj, "sgdb_id");
-        (*platform_list)[i].sgdb_id = sgdb_id_obj == NULL ? NULL : strdup(json_object_get_int(sgdb_id_obj));
+        (*platform_list)[i].sgdb_id = sgdb_id_obj == NULL ? -1 : json_object_get_int(sgdb_id_obj);
         struct json_object *moby_id_obj = json_object_object_get(platform_obj, "moby_id");
-        (*platform_list)[i].moby_id = moby_id_obj == NULL ? NULL : strdup(json_object_get_int(moby_id_obj));
+        (*platform_list)[i].moby_id = moby_id_obj == NULL ? -1 : json_object_get_int(moby_id_obj);
     }
 
     // Clean up
@@ -186,49 +186,5 @@ int fetch_platform_list(const char* server_host, const char* username, const cha
 
 // Function to fetch the ROM list from the server
 int fetch_rom_list(const char* server_host, const char* platform_slug, RomMRom** rom_list, int* rom_count) {
-    CURL *curl;
-    CURLcode res;
-    char url[1024];
-    char response[10000] = "";  // Response buffer to store the JSON data
-
-    // Build the URL for the request
-    snprintf(url, sizeof(url), "%s/roms/%s", server_host, platform_slug);
-
-    // Initialize libcurl
-    curl_global_init(CURL_GLOBAL_DEFAULT);
-    curl = curl_easy_init();
-
-    if (!curl) {
-        fprintf(stderr, "Failed to initialize curl\n");
-        curl_global_cleanup();
-        return -1;
-    }
-
-    // Set the URL and the callback function
-    curl_easy_setopt(curl, CURLOPT_URL, url);
-    curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, write_callback);
-    curl_easy_setopt(curl, CURLOPT_WRITEDATA, response);
-
-    // Perform the request
-    res = curl_easy_perform(curl);
-
-    if (res != CURLE_OK) {
-        fprintf(stderr, "curl_easy_perform() failed: %s\n", curl_easy_strerror(res));
-        curl_easy_cleanup(curl);
-        curl_global_cleanup();
-        return -1;
-    }
-
-    // Parse the JSON response here
-    // (For now, just print it out as a string)
-    printf("Received ROM list: %s\n", response);
-
-    // Here you should parse the JSON and fill the `rom_list` array
-    // We assume the ROMs are parsed successfully into rom_list
-
-    // Clean up
-    curl_easy_cleanup(curl);
-    curl_global_cleanup();
-
     return 0;
 }

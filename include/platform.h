@@ -30,10 +30,10 @@ typedef struct RomMPlatform {
     char* slug;
     char* fs_slug;
     char* name;
+    int igdb_id;  // Using pointer to handle nullable ulong
+    int sgdb_id;  // Using pointer to handle nullable ulong
+    int moby_id;  // Using pointer to handle nullable ulong
     int rom_count;
-    unsigned long long* igdb_id;  // Using pointer to handle nullable ulong
-    unsigned long long* sgdb_id;  // Using pointer to handle nullable ulong
-    unsigned long long* moby_id;  // Using pointer to handle nullable ulong
     char* logo_path;
     RomMPlatformFirmware** firmware;  // Array of pointers to firmware
     int firmware_count;          // To keep track of firmware array size
