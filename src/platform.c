@@ -1,7 +1,10 @@
+#include <curl/curl.h>
+#include <json-c/json.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include "platform.h"
+#include "base64.h"
 
 // Free memory for a single firmware
 void free_firmware(RomMPlatformFirmware* firmware) {
@@ -50,6 +53,13 @@ void free_platform_list(RomMPlatform* platforms, int count) {
     free(platforms);
 }
 
+// This is the callback function to write the response into a string
+size_t write_callback(void *ptr, size_t size, size_t nmemb, char *data) {
+    size_t total_size = size * nmemb;
+    strncat(data, ptr, total_size);  // Append the data to the string
+    return total_size;
+}
+
 // Return the console path based on platform slug
 const char* get_console_path(const char* platform_slug) {
     // This example assumes a fixed base path; modify as needed
@@ -59,79 +69,166 @@ const char* get_console_path(const char* platform_slug) {
     return path;
 }
 
-// Fetch platform list from the server
-int fetch_platform_list(const char* server_url, RomMPlatform** platform_list, int* platform_count) {
-    if (!server_url || !platform_list || !platform_count) return -1;
-
-    // Simulate fetching data from a server
-    printf("Fetching platform list from %s\n", server_url);
-
-    // Allocate memory and populate with mock data for testing
-    *platform_count = 3;
-    *platform_list = malloc(*platform_count * sizeof(RomMPlatform));
-    if (!*platform_list) return -1;
-
-    for (int i = 0; i < *platform_count; i++) {
-        (*platform_list)[i].id = i + 1;
-        (*platform_list)[i].slug = strdup("example-slug");
-        (*platform_list)[i].fs_slug = strdup("example-fs-slug");
-        (*platform_list)[i].name = strdup("Example Platform");
-        (*platform_list)[i].rom_count = 100;
-        (*platform_list)[i].igdb_id = NULL;
-        (*platform_list)[i].sgdb_id = NULL;
-        (*platform_list)[i].moby_id = NULL;
-        (*platform_list)[i].logo_path = strdup("/path/to/logo.png");
-        (*platform_list)[i].firmware = NULL;
-        (*platform_list)[i].firmware_count = 0;
-        (*platform_list)[i].created_at = strdup("2025-01-01T12:00:00Z");
-        (*platform_list)[i].updated_at = strdup("2025-01-02T12:00:00Z");
+// Function to generate the Basic Authorization header from username and password
+char* generate_authorization_header(const char* username, const char* password) {
+    // Create a buffer large enough to hold the base64-encoded credentials
+    char* auth_header = malloc(512);
+    if (auth_header == NULL) {
+        fprintf(stderr, "Failed to allocate memory for authorization header\n");
+        return NULL;
     }
+
+    // Format the username and password into the "username:password" format
+    char credentials[512];
+    snprintf(credentials, sizeof(credentials), "%s:%s", username, password);
+
+    // Base64 encode the credentials and get the encoded string
+    size_t encoded_len;
+    unsigned char* encoded_credentials = base64_encode((unsigned char*)credentials, strlen(credentials), &encoded_len);
+
+    if (encoded_credentials == NULL) {
+        fprintf(stderr, "Base64 encoding failed\n");
+        free(auth_header);
+        return NULL;
+    }
+
+    // Format the Authorization header with "Basic <encoded_credentials>"
+    snprintf(auth_header, 512, "Authorization: Basic %s", encoded_credentials);
+
+    // Free the memory allocated by base64_encode
+    free(encoded_credentials);
+
+    return auth_header;
+}
+
+
+// Function to fetch the platform list from the server
+int fetch_platform_list(const char* server_host, const char* username, const char* password, RomMPlatform** platform_list, int* platform_count) {
+    CURL *curl;
+    CURLcode res;
+    char response[10000] = "";  // Response buffer to store the JSON data
+    char url[1024];
+
+    // Build the URL for the request
+    snprintf(url, sizeof(url), "%s/api/platforms", server_host);
+
+    // Initialize libcurl
+    curl_global_init(CURL_GLOBAL_DEFAULT);
+    curl = curl_easy_init();
+
+    if (!curl) {
+        fprintf(stderr, "Failed to initialize curl\n");
+        curl_global_cleanup();
+        return -1;
+    }
+
+    // Set the URL and the callback function
+    curl_easy_setopt(curl, CURLOPT_URL, url);
+    curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, write_callback);
+    curl_easy_setopt(curl, CURLOPT_WRITEDATA, response);
+
+    // Set the Authorization header
+    char* auth_header = generate_authorization_header(username, password);
+    struct curl_slist *headers = NULL;
+    headers = curl_slist_append(headers, auth_header);
+    curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);
+
+    // Perform the request
+    res = curl_easy_perform(curl);
+
+    if (res != CURLE_OK) {
+        fprintf(stderr, "curl_easy_perform() failed: %s\n", curl_easy_strerror(res));
+        curl_easy_cleanup(curl);
+        curl_global_cleanup();
+        return -1;
+    }
+
+    // Parse the JSON response
+    struct json_object *parsed_json;
+    parsed_json = json_tokener_parse(response);
+
+    // Get the array of platforms
+    struct json_object *platform_array;
+    json_object_object_get_ex(parsed_json, "platforms", &platform_array);
+
+    *platform_count = json_object_array_length(platform_array);
+    *platform_list = malloc(*platform_count * sizeof(RomMPlatform));  // Allocate memory for platforms
+
+    // Loop through each platform and populate the platform_list
+    for (int i = 0; i < *platform_count; i++) {
+        struct json_object *platform_obj = json_object_array_get_idx(platform_array, i);
+
+        (*platform_list)[i].id = json_object_get_int(json_object_object_get(platform_obj, "id"));
+        (*platform_list)[i].slug = strdup(json_object_get_string(json_object_object_get(platform_obj, "slug")));
+        (*platform_list)[i].fs_slug = strdup(json_object_get_string(json_object_object_get(platform_obj, "fs_slug")));
+        (*platform_list)[i].name = strdup(json_object_get_string(json_object_object_get(platform_obj, "name")));
+        (*platform_list)[i].rom_count = json_object_get_int(json_object_object_get(platform_obj, "rom_count"));
+        (*platform_list)[i].logo_path = strdup(json_object_get_string(json_object_object_get(platform_obj, "logo_path")));
+        (*platform_list)[i].created_at = strdup(json_object_get_string(json_object_object_get(platform_obj, "created_at")));
+        (*platform_list)[i].updated_at = strdup(json_object_get_string(json_object_object_get(platform_obj, "updated_at")));
+
+        // Handle nullable fields with NULL checks
+        struct json_object *igdb_id_obj = json_object_object_get(platform_obj, "igdb_id");
+        (*platform_list)[i].igdb_id = igdb_id_obj == NULL ? NULL : strdup(json_object_get_int(igdb_id_obj));
+        struct json_object *sgdb_id_obj = json_object_object_get(platform_obj, "sgdb_id");
+        (*platform_list)[i].sgdb_id = sgdb_id_obj == NULL ? NULL : strdup(json_object_get_int(sgdb_id_obj));
+        struct json_object *moby_id_obj = json_object_object_get(platform_obj, "moby_id");
+        (*platform_list)[i].moby_id = moby_id_obj == NULL ? NULL : strdup(json_object_get_int(moby_id_obj));
+    }
+
+    // Clean up
+    json_object_put(parsed_json);  // Free the JSON object
+    curl_easy_cleanup(curl);
+    curl_global_cleanup();
+
     return 0;
 }
 
-// Fetch ROM list for a platform
-int fetch_rom_list(const char* server_url, const char* platform_slug, RomMRom** rom_list, int* rom_count) {
-    if (!server_url || !platform_slug || !rom_list || !rom_count) return -1;
+// Function to fetch the ROM list from the server
+int fetch_rom_list(const char* server_host, const char* platform_slug, RomMRom** rom_list, int* rom_count) {
+    CURL *curl;
+    CURLcode res;
+    char url[1024];
+    char response[10000] = "";  // Response buffer to store the JSON data
 
-    // Simulate fetching data from a server
-    printf("Fetching ROM list for platform '%s' from %s\n", platform_slug, server_url);
+    // Build the URL for the request
+    snprintf(url, sizeof(url), "%s/roms/%s", server_host, platform_slug);
 
-    // Allocate memory and populate with mock data for testing
-    *rom_count = 10;
-    *rom_list = malloc(*rom_count * sizeof(RomMRom));
-    if (!*rom_list) return -1;
+    // Initialize libcurl
+    curl_global_init(CURL_GLOBAL_DEFAULT);
+    curl = curl_easy_init();
 
-    for (int i = 0; i < *rom_count; i++) {
-        (*rom_list)[i].id = i + 1;
-        (*rom_list)[i].igdb_id = malloc(sizeof(int));
-        *(*rom_list)[i].igdb_id = i + 10;
-        (*rom_list)[i].sgdb_id = malloc(sizeof(int));
-        *(*rom_list)[i].sgdb_id = i + 20;
-        (*rom_list)[i].moby_id = malloc(sizeof(int));
-        *(*rom_list)[i].moby_id = i + 30;
-        (*rom_list)[i].platform_id = 1;
-        (*rom_list)[i].platform_slug = strdup(platform_slug);
-        (*rom_list)[i].platform_name = strdup("Example Platform");
-        (*rom_list)[i].file_name = strdup("example-rom.zip");
-        (*rom_list)[i].file_name_no_tags = strdup("example-rom");
-        (*rom_list)[i].file_name_no_ext = strdup("example-rom");
-        (*rom_list)[i].file_extension = strdup("zip");
-        (*rom_list)[i].file_path = strdup("/path/to/example-rom.zip");
-        (*rom_list)[i].file_size_bytes = 1024;
-        (*rom_list)[i].name = strdup("Example ROM");
-        (*rom_list)[i].slug = strdup("example-rom");
-        (*rom_list)[i].summary = strdup("This is an example ROM");
-        (*rom_list)[i].first_release_date = NULL;
-        (*rom_list)[i].path_cover_s = strdup("/path/to/cover-s.png");
-        (*rom_list)[i].path_cover_l = strdup("/path/to/cover-l.png");
-        (*rom_list)[i].has_cover = true;
-        (*rom_list)[i].url_cover = strdup("https://example.com/cover.png");
-        (*rom_list)[i].revision = strdup("1.0");
-        (*rom_list)[i].multi = false;
-        (*rom_list)[i].files_count = 1;
-        (*rom_list)[i].full_path = strdup("/path/to/example-rom.zip");
-        (*rom_list)[i].created_at = strdup("2025-01-01T12:00:00Z");
-        (*rom_list)[i].updated_at = strdup("2025-01-02T12:00:00Z");
+    if (!curl) {
+        fprintf(stderr, "Failed to initialize curl\n");
+        curl_global_cleanup();
+        return -1;
     }
+
+    // Set the URL and the callback function
+    curl_easy_setopt(curl, CURLOPT_URL, url);
+    curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, write_callback);
+    curl_easy_setopt(curl, CURLOPT_WRITEDATA, response);
+
+    // Perform the request
+    res = curl_easy_perform(curl);
+
+    if (res != CURLE_OK) {
+        fprintf(stderr, "curl_easy_perform() failed: %s\n", curl_easy_strerror(res));
+        curl_easy_cleanup(curl);
+        curl_global_cleanup();
+        return -1;
+    }
+
+    // Parse the JSON response here
+    // (For now, just print it out as a string)
+    printf("Received ROM list: %s\n", response);
+
+    // Here you should parse the JSON and fill the `rom_list` array
+    // We assume the ROMs are parsed successfully into rom_list
+
+    // Clean up
+    curl_easy_cleanup(curl);
+    curl_global_cleanup();
+
     return 0;
 }

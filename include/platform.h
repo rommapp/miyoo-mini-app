@@ -32,8 +32,8 @@ typedef struct RomMPlatform {
     char* name;
     int rom_count;
     unsigned long long* igdb_id;  // Using pointer to handle nullable ulong
-    void* sgdb_id;               // Using void* for object type
-    void* moby_id;               // Using void* for object type
+    unsigned long long* sgdb_id;  // Using pointer to handle nullable ulong
+    unsigned long long* moby_id;  // Using pointer to handle nullable ulong
     char* logo_path;
     RomMPlatformFirmware** firmware;  // Array of pointers to firmware
     int firmware_count;          // To keep track of firmware array size
@@ -47,7 +47,7 @@ void free_firmware(RomMPlatformFirmware* firmware);
 
 // Function declarations for operations
 const char* get_console_path(const char* platform_slug);
-int fetch_platform_list(const char* server_url, RomMPlatform** platform_list, int* platform_count);
+int fetch_platform_list(const char* server_url, const char* username, const char* password, RomMPlatform** platform_list, int* platform_count);
 int fetch_rom_list(const char* server_url, const char* platform_slug, RomMRom** rom_list, int* rom_count);
 void free_platform_list(RomMPlatform* platforms, int count);
 
