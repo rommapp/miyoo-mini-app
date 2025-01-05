@@ -3,3 +3,4 @@
 App/RomM/romm
 config.txt
 include/json-c
+lib/libjson-c.a
