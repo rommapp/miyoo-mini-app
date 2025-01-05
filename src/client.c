@@ -4,7 +4,7 @@
 
 int main() {
     // Define the server URL and the credentials for Basic Auth
-    const char* server_url = "https";
+    const char* server_url = "";
     const char* username = "";
     const char* password = "";
 

@@ -1,10 +1,11 @@
-#include <curl/curl.h>
-#include <json-c/json.h>
-#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <stdio.h>
+#include <curl/curl.h>
+#include <json-c/json.h>
 #include "platform.h"
 #include "base64.h"
+#include "response.h"
 
 // Free memory for a single firmware
 void free_firmware(RomMPlatformFirmware* firmware) {
@@ -21,8 +22,6 @@ void free_firmware(RomMPlatformFirmware* firmware) {
     free(firmware->sha1_hash);
     free(firmware->created_at);
     free(firmware->updated_at);
-
-    free(firmware); // Free the structure itself
 }
 
 // Free memory for a platform, including its firmware
@@ -35,14 +34,6 @@ void free_platform(RomMPlatform* platform) {
     free(platform->logo_path);
     free(platform->created_at);
     free(platform->updated_at);
-
-    // Free each firmware item
-    for (int i = 0; i < platform->firmware_count; i++) {
-        free_firmware(platform->firmware[i]);
-    }
-    free(platform->firmware); // Free the firmware array
-
-    free(platform); // Free the structure itself
 }
 
 // Free an array of platforms
@@ -53,20 +44,9 @@ void free_platform_list(RomMPlatform* platforms, int count) {
     free(platforms);
 }
 
-// This is the callback function to write the response into a string
-size_t write_callback(void *ptr, size_t size, size_t nmemb, char *data) {
-    size_t total_size = size * nmemb;
-    strncat(data, ptr, total_size);  // Append the data to the string
-    return total_size;
-}
-
 // Return the console path based on platform slug
 const char* get_console_path(const char* platform_slug) {
-    // This example assumes a fixed base path; modify as needed
-    static char path[1024];
-    // TODO
-    snprintf(path, sizeof(path), "/Roms/%s", platform_slug);
-    return path;
+    return "miyoo-mini";
 }
 
 // Function to generate the Basic Authorization header from username and password
@@ -101,13 +81,17 @@ char* generate_authorization_header(const char* username, const char* password) 
     return auth_header;
 }
 
-
 // Function to fetch the platform list from the server
 int fetch_platform_list(const char* server_host, const char* username, const char* password, RomMPlatform** platform_list, int* platform_count) {
     CURL *curl;
     CURLcode res;
-    char response[10000] = "";  // Response buffer to store the JSON data
+    Response* resp = response_init();
     char url[1024];
+
+    if (!resp) {
+        fprintf(stderr, "Failed to initialize response\n");
+        return -1;
+    }
 
     // Build the URL for the request
     snprintf(url, sizeof(url), "%s/api/platforms", server_host);
@@ -118,14 +102,15 @@ int fetch_platform_list(const char* server_host, const char* username, const cha
 
     if (!curl) {
         fprintf(stderr, "Failed to initialize curl\n");
+        response_free(resp);
         curl_global_cleanup();
         return -1;
     }
 
     // Set the URL and the callback function
     curl_easy_setopt(curl, CURLOPT_URL, url);
-    curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, write_callback);
-    curl_easy_setopt(curl, CURLOPT_WRITEDATA, response);
+    curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, response_write_callback);
+    curl_easy_setopt(curl, CURLOPT_WRITEDATA, (void *)resp);
 
     // Set the Authorization header
     char* auth_header = generate_authorization_header(username, password);
@@ -138,6 +123,9 @@ int fetch_platform_list(const char* server_host, const char* username, const cha
 
     if (res != CURLE_OK) {
         fprintf(stderr, "curl_easy_perform() failed: %s\n", curl_easy_strerror(res));
+        response_free(resp);
+        free(auth_header);
+        curl_slist_free_all(headers);
         curl_easy_cleanup(curl);
         curl_global_cleanup();
         return -1;
@@ -145,11 +133,20 @@ int fetch_platform_list(const char* server_host, const char* username, const cha
 
     // Parse the JSON response
     struct json_object *parsed_json;
-    parsed_json = json_tokener_parse(response);
+    parsed_json = json_tokener_parse(response_get_memory(resp));
+
+    if (parsed_json == NULL) {
+        fprintf(stderr, "Failed to parse JSON response\n");
+        response_free(resp);
+        free(auth_header);
+        curl_slist_free_all(headers);
+        curl_easy_cleanup(curl);
+        curl_global_cleanup();
+        return -1;
+    }
 
     // Get the array of platforms
-    struct json_object *platform_array;
-    json_object_object_get_ex(parsed_json, "platforms", &platform_array);
+    struct json_object *platform_array = parsed_json;
 
     *platform_count = json_object_array_length(platform_array);
     *platform_list = malloc(*platform_count * sizeof(RomMPlatform));  // Allocate memory for platforms
@@ -177,7 +174,10 @@ int fetch_platform_list(const char* server_host, const char* username, const cha
     }
 
     // Clean up
-    json_object_put(parsed_json);  // Free the JSON object
+    free(auth_header);
+    response_free(resp);
+    curl_slist_free_all(headers);
+    json_object_put(parsed_json);
     curl_easy_cleanup(curl);
     curl_global_cleanup();
 
